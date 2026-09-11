@@ -7,6 +7,8 @@ const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
 const PUBLIC = path.join(ROOT, "public");
 const DATA_FILE = path.join(ROOT, "data.json");
+const TMP_DATA_FILE = path.join("/tmp", "ustaai-data.json");
+const DATA_STORAGE_FILE = process.env.VERCEL ? TMP_DATA_FILE : DATA_FILE;
 const sessions = new Map();
 
 const defaultData = {
@@ -57,26 +59,33 @@ const defaultData = {
 
 function loadData() {
   try {
-    const saved = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+    const raw = fs.readFileSync(DATA_STORAGE_FILE, "utf8");
+    const saved = JSON.parse(raw);
     const admin = saved.users?.find((user) => user.role === "admin");
     if (admin) {
       admin.email = "bexruzkarimov200023@gmail.com";
       admin.password = "Bexruz,123";
       admin.name = "Bexruz Karimov";
-      fs.writeFileSync(DATA_FILE, JSON.stringify(saved, null, 2));
+      fs.writeFileSync(DATA_STORAGE_FILE, JSON.stringify(saved, null, 2));
     }
     saved.sessions = saved.sessions || {};
     for (const [token, userId] of Object.entries(saved.sessions))
       sessions.set(token, userId);
     return saved;
   } catch {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(defaultData, null, 2));
-    return structuredClone(defaultData);
+    try {
+      const fallback = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+      fs.writeFileSync(DATA_STORAGE_FILE, JSON.stringify(fallback, null, 2));
+      return fallback;
+    } catch {
+      fs.writeFileSync(DATA_STORAGE_FILE, JSON.stringify(defaultData, null, 2));
+      return structuredClone(defaultData);
+    }
   }
 }
 function saveData(data) {
   data.sessions = Object.fromEntries(sessions.entries());
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  fs.writeFileSync(DATA_STORAGE_FILE, JSON.stringify(data, null, 2));
 }
 let data = loadData();
 
@@ -435,7 +444,7 @@ async function api(req, res, url) {
   send(res, 404, { error: "API topilmadi" });
 }
 
-const server = http.createServer(async (req, res) => {
+async function handleRequest(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
   try {
     if (url.pathname.startsWith("/api/")) return await api(req, res, url);
@@ -460,5 +469,11 @@ const server = http.createServer(async (req, res) => {
   } catch (error) {
     send(res, 500, { error: "Server xatosi" });
   }
-});
-server.listen(PORT, () => console.log(`UstaAI http://localhost:${PORT}`));
+}
+
+if (require.main === module) {
+  const server = http.createServer(handleRequest);
+  server.listen(PORT, () => console.log(`UstaAI http://localhost:${PORT}`));
+}
+
+module.exports = handleRequest;
