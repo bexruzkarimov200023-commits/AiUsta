@@ -50,6 +50,61 @@ const languages = {
 };
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
+const AUTH_USER_KEY = "usta_user";
+const AUTH_SESSION_KEY = "usta_session";
+
+function persistAuthState(user, token) {
+  if (user) {
+    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+    sessionStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+  } else {
+    localStorage.removeItem(AUTH_USER_KEY);
+    sessionStorage.removeItem(AUTH_USER_KEY);
+  }
+
+  if (token) {
+    localStorage.setItem(AUTH_SESSION_KEY, token);
+    sessionStorage.setItem(AUTH_SESSION_KEY, token);
+  } else {
+    localStorage.removeItem(AUTH_SESSION_KEY);
+    sessionStorage.removeItem(AUTH_SESSION_KEY);
+  }
+}
+
+function restoreAuthState() {
+  const savedUser =
+    localStorage.getItem(AUTH_USER_KEY) ||
+    sessionStorage.getItem(AUTH_USER_KEY);
+  const sessionToken =
+    localStorage.getItem(AUTH_SESSION_KEY) ||
+    sessionStorage.getItem(AUTH_SESSION_KEY);
+
+  if (savedUser) {
+    try {
+      S.user = JSON.parse(savedUser);
+    } catch {
+      S.user = null;
+    }
+  }
+
+  if (sessionToken && !localStorage.getItem(AUTH_SESSION_KEY)) {
+    localStorage.setItem(AUTH_SESSION_KEY, sessionToken);
+  }
+
+  if (sessionToken && !sessionStorage.getItem(AUTH_SESSION_KEY)) {
+    sessionStorage.setItem(AUTH_SESSION_KEY, sessionToken);
+  }
+
+  return { user: S.user, sessionToken: sessionToken };
+}
+
+function clearAuthState() {
+  localStorage.removeItem(AUTH_USER_KEY);
+  localStorage.removeItem(AUTH_SESSION_KEY);
+  sessionStorage.removeItem(AUTH_USER_KEY);
+  sessionStorage.removeItem(AUTH_SESSION_KEY);
+}
+
 const aboutNav = document.createElement("button");
 aboutNav.className = "nav";
 aboutNav.dataset.page = "about";
@@ -302,8 +357,9 @@ function history() {
 }
 function masters() {
   const ms = S.masters;
+  const canAddMaster = S.user && ["specialist", "admin"].includes(S.user.role);
   $("#content").innerHTML =
-    `<div class="page"><div class="heading"><div><span class="eyebrow">MARKETPLACE</span><h1>Yaqin ustalar</h1><p>Muammoingizga mos, tekshirilgan mutaxassislar.</p></div><span class="date">⌖ Toshkent, Chilonzor</span></div><div class="masters">${ms.map((m) => `<article class="master card"><div class="master-top"><div class="master-avatar">${m.accent}</div><div><h3>${m.name}</h3><p>${m.specialty}</p></div></div><div class="online"><i></i>${m.available ? "Hozir mavjud" : "Band, keyinroq bog‘lanadi"}</div><div class="meta"><span>★ ${m.rating} · ${m.jobs} ish</span><span>${m.distance}</span></div><button class="primary full contact" data-name="${m.name}" style="margin-top:15px">Bog‘lanish <span>→</span></button></article>`).join("")}</div></div>`;
+    `<div class="page"><div class="heading"><div><span class="eyebrow">MARKETPLACE</span><h1>Yaqin ustalar</h1><p>Muammoingizga mos, tekshirilgan mutaxassislar.</p></div><div class="heading-actions"><span class="date">⌖ Toshkent, Chilonzor</span>${canAddMaster ? '<button class="primary" id="addMasterBtn">+ Usta qo\'shish</button>' : ""}</div></div><div class="masters">${ms.map((m) => `<article class="master card"><div class="master-top"><div class="master-avatar">${m.accent}</div><div><h3>${m.name}</h3><p>${m.specialty}</p></div></div><div class="online"><i></i>${m.available ? "Hozir mavjud" : "Band, keyinroq bog‘lanadi"}</div><div class="meta"><span>★ ${m.rating} · ${m.jobs} ish</span><span>${m.distance}</span></div><button class="primary full contact" data-name="${m.name}" style="margin-top:15px">Bog‘lanish <span>→</span></button></article>`).join("")}</div></div>`;
   $$(".contact").forEach(
     (b) =>
       (b.onclick = () => {
@@ -312,6 +368,8 @@ function masters() {
         modal("contact");
       }),
   );
+  $("#addMasterBtn") &&
+    ($("#addMasterBtn").onclick = () => modal("specialistForm"));
 }
 async function admin() {
   try {
@@ -352,20 +410,17 @@ async function deleteUser(userId) {
   }
 }
 async function init() {
-  const savedUser = localStorage.getItem("usta_user");
-  if (savedUser) {
-    try {
-      S.user = JSON.parse(savedUser);
-    } catch {
-      localStorage.removeItem("usta_user");
-    }
-  }
+  restoreAuthState();
+
   try {
     const m = await api("/api/auth/me");
     if (!m.user && !S.user) return requireLogin();
-    if (m.user) S.user = m.user;
+    if (m.user) {
+      S.user = m.user;
+      persistAuthState(S.user, localStorage.getItem(AUTH_SESSION_KEY));
+    }
     if (!S.user) return requireLogin();
-    localStorage.setItem("usta_user", JSON.stringify(S.user));
+    persistAuthState(S.user, localStorage.getItem(AUTH_SESSION_KEY));
     S.masters = (await api("/api/specialists")).specialists;
     S.diagnoses = (await api("/api/diagnoses")).diagnoses;
     profile();
@@ -488,9 +543,12 @@ $("#authForm").onsubmit = async (e) => {
       method: "POST",
       body: JSON.stringify(form),
     });
-    if (r.sessionToken) localStorage.setItem("usta_session", r.sessionToken);
+    if (r.sessionToken) {
+      persistAuthState(r.user, r.sessionToken);
+    } else {
+      persistAuthState(r.user, localStorage.getItem(AUTH_SESSION_KEY));
+    }
     S.user = r.user;
-    localStorage.setItem("usta_user", JSON.stringify(S.user));
     document.body.classList.remove("auth-required");
     profile();
     modal("auth", false);
@@ -504,9 +562,11 @@ $("#authForm").onsubmit = async (e) => {
 };
 function finishLogin(result) {
   S.user = result.user;
-  if (result.sessionToken)
-    localStorage.setItem("usta_session", result.sessionToken);
-  localStorage.setItem("usta_user", JSON.stringify(S.user));
+  if (result.sessionToken) {
+    persistAuthState(S.user, result.sessionToken);
+  } else {
+    persistAuthState(S.user, localStorage.getItem(AUTH_SESSION_KEY));
+  }
   document.body.classList.remove("auth-required");
   profile();
   modal("auth", false);
@@ -545,8 +605,7 @@ $$("[data-provider]").forEach(
 $("#logout").onclick = async () => {
   if (S.user) {
     await api("/api/auth/logout", { method: "POST" });
-    localStorage.removeItem("usta_session");
-    localStorage.removeItem("usta_user");
+    clearAuthState();
     S.user = null;
     S.diagnoses = [];
     $("#userName").textContent = "Mehmon";
@@ -556,6 +615,21 @@ $("#logout").onclick = async () => {
     shell();
   }
 };
+
+window.addEventListener("storage", (event) => {
+  if (event.key === AUTH_USER_KEY && !event.newValue) {
+    S.user = null;
+    return;
+  }
+
+  if (event.key === AUTH_USER_KEY && event.newValue) {
+    try {
+      S.user = JSON.parse(event.newValue);
+    } catch {
+      S.user = null;
+    }
+  }
+});
 $("#accountTrigger").onclick = () => {
   if (S.user) {
     S.page = "account";
@@ -566,6 +640,45 @@ $("#contactForm").onsubmit = (e) => {
   e.preventDefault();
   modal("contact", false);
   toast("So‘rovingiz yuborildi. Usta tez orada bog‘lanadi.");
+};
+$("#specialistCreateForm").onsubmit = async (e) => {
+  e.preventDefault();
+  if (!S.user || !["specialist", "admin"].includes(S.user.role)) {
+    modal("specialistForm", false);
+    modal("auth");
+    toast("Usta qo‘shish uchun specialist sifatida kirish kerak");
+    return;
+  }
+
+  const form = Object.fromEntries(new FormData(e.target));
+  const payload = {
+    name: String(form.name || "").trim(),
+    specialty: String(form.specialty || "").trim(),
+    distance: String(form.distance || "Yangi usta").trim() || "Yangi usta",
+    available: String(form.available) === "true",
+  };
+
+  if (!payload.name || !payload.specialty) {
+    toast("Ism va mutaxassislik maydonlari majburiy");
+    return;
+  }
+
+  try {
+    const result = await api("/api/specialists", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    S.masters = (await api("/api/specialists")).specialists;
+    modal("specialistForm", false);
+    e.target.reset();
+    toast("Yangi usta katalogga qo‘shildi");
+    if (S.page === "masters") shell();
+    if (result.specialist) {
+      S.masters.unshift(result.specialist);
+    }
+  } catch (error) {
+    toast(error.message);
+  }
 };
 applyLanguage();
 init().then(() => {
