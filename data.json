@@ -1,0 +1,206 @@
+{
+  "users": [
+    {
+      "id": "usr-1",
+      "name": "Bexruz Karimov",
+      "email": "bexruzkarimov200023@gmail.com",
+      "password": "Bexruz,123",
+      "role": "admin"
+    },
+    {
+      "id": "usr-1789052916878",
+      "name": "Google Demo",
+      "email": "google.demo@ustaai.uz",
+      "password": "678bbf0841a560e23a1423c1136d98d5",
+      "role": "user",
+      "provider": "Google"
+    }
+  ],
+  "diagnoses": [
+    {
+      "id": "diag-1789054460243",
+      "userId": "usr-1",
+      "category": "Konditsioner",
+      "note": "Konditsionerimdan suv oqyapti",
+      "result": {
+        "issue": "Drenaj tizimida tiqilish ehtimoli",
+        "confidence": 82,
+        "action": "Drenajni tozalash va filtrni tekshirish",
+        "price": "80 000–150 000 so‘m",
+        "time": "30–60 daqiqa",
+        "urgency": "Bugun",
+        "parts": [
+          "Drenaj shlangi",
+          "Universal filtr"
+        ]
+      },
+      "createdAt": "2026-09-10T15:34:20.243Z"
+    },
+    {
+      "id": "diag-1789054376482",
+      "userId": "usr-1",
+      "category": "Konditsioner",
+      "note": "",
+      "result": {
+        "issue": "Drenaj tizimida tiqilish ehtimoli",
+        "confidence": 82,
+        "action": "Drenajni tozalash va filtrni tekshirish",
+        "price": "80 000–150 000 so‘m",
+        "time": "30–60 daqiqa",
+        "urgency": "Bugun",
+        "parts": [
+          "Drenaj shlangi",
+          "Universal filtr"
+        ]
+      },
+      "createdAt": "2026-09-10T15:32:56.482Z"
+    },
+    {
+      "id": "diag-1789054371446",
+      "userId": "usr-1",
+      "category": "Konditsioner",
+      "note": "",
+      "result": {
+        "issue": "Drenaj tizimida tiqilish ehtimoli",
+        "confidence": 82,
+        "action": "Drenajni tozalash va filtrni tekshirish",
+        "price": "80 000–150 000 so‘m",
+        "time": "30–60 daqiqa",
+        "urgency": "Bugun",
+        "parts": [
+          "Drenaj shlangi",
+          "Universal filtr"
+        ]
+      },
+      "createdAt": "2026-09-10T15:32:51.446Z"
+    },
+    {
+      "id": "diag-1789052412694",
+      "userId": "usr-1",
+      "category": "Konditsioner",
+      "note": "",
+      "result": {
+        "issue": "Drenaj tizimida tiqilish ehtimoli",
+        "confidence": 82,
+        "action": "Drenajni tozalash va filtrni tekshirish",
+        "price": "80 000–150 000 so‘m",
+        "time": "30–60 daqiqa",
+        "urgency": "Bugun",
+        "parts": [
+          "Drenaj shlangi",
+          "Universal filtr"
+        ]
+      },
+      "createdAt": "2026-09-10T15:00:12.694Z"
+    },
+    {
+      "id": "diag-1789052411423",
+      "userId": "usr-1",
+      "category": "Konditsioner",
+      "note": "",
+      "result": {
+        "issue": "Drenaj tizimida tiqilish ehtimoli",
+        "confidence": 82,
+        "action": "Drenajni tozalash va filtrni tekshirish",
+        "price": "80 000–150 000 so‘m",
+        "time": "30–60 daqiqa",
+        "urgency": "Bugun",
+        "parts": [
+          "Drenaj shlangi",
+          "Universal filtr"
+        ]
+      },
+      "createdAt": "2026-09-10T15:00:11.423Z"
+    },
+    {
+      "id": "diag-1789052397827",
+      "userId": "usr-1",
+      "category": "Konditsioner",
+      "note": "",
+      "result": {
+        "issue": "Drenaj tizimida tiqilish ehtimoli",
+        "confidence": 82,
+        "action": "Drenajni tozalash va filtrni tekshirish",
+        "price": "80 000–150 000 so‘m",
+        "time": "30–60 daqiqa",
+        "urgency": "Bugun",
+        "parts": [
+          "Drenaj shlangi",
+          "Universal filtr"
+        ]
+      },
+      "createdAt": "2026-09-10T14:59:57.828Z"
+    },
+    {
+      "id": "diag-1789052378818",
+      "userId": "usr-1",
+      "category": "Konditsioner",
+      "note": "",
+      "result": {
+        "issue": "Drenaj tizimida tiqilish ehtimoli",
+        "confidence": 82,
+        "action": "Drenajni tozalash va filtrni tekshirish",
+        "price": "80 000–150 000 so‘m",
+        "time": "30–60 daqiqa",
+        "urgency": "Bugun",
+        "parts": [
+          "Drenaj shlangi",
+          "Universal filtr"
+        ]
+      },
+      "createdAt": "2026-09-10T14:59:38.818Z"
+    }
+  ],
+  "specialists": [
+    {
+      "id": "usta-1",
+      "name": "Jasur Usta",
+      "specialty": "Konditsioner va sovutish",
+      "rating": 4.9,
+      "jobs": 128,
+      "distance": "1.8 km",
+      "available": true,
+      "accent": "JA"
+    },
+    {
+      "id": "usta-2",
+      "name": "Sardor Service",
+      "specialty": "Elektr va maishiy texnika",
+      "rating": 4.8,
+      "jobs": 96,
+      "distance": "3.2 km",
+      "available": true,
+      "accent": "SS"
+    },
+    {
+      "id": "usta-3",
+      "name": "FixLab Usta",
+      "specialty": "Santexnika va uy jihozlari",
+      "rating": 4.7,
+      "jobs": 74,
+      "distance": "4.6 km",
+      "available": false,
+      "accent": "FU"
+    }
+  ],
+  "sessions": {
+    "f5cb948913d0dac3558795d012382b33080140c4536ae450": "usr-1",
+    "91297809c8b1f9a1fb228b1e9684858c4b21aa67cb78831b": "usr-1",
+    "234a83924d60d994252fda0d2a80ed405d9f84fd5dab40c2": "usr-1",
+    "44712f7975419b4c66b69f80d30ce3d336a9c628dedee8cd": "usr-1",
+    "2407a0227709383f55263a1ad809e160dd068939a99450c9": "usr-1",
+    "63bc0a8daa35766eb554939234469aed3f68f3223a9fde2a": "usr-1",
+    "a37e7da942ff4d3b34d98d9e988d01873ba86c60f8a6eaa8": "usr-1",
+    "2bc5905efc603dec7930a76bddc5355ddf6115d06245d450": "usr-1",
+    "ffc137b4386c25d05f6f3ec1fb53ca06fc0893b53bb87bde": "usr-1",
+    "6b2a5b06f7f342e5e9c635a14b54dc20a4918308400fdf57": "usr-1",
+    "2a2eb21e4e2c6a9e04d8d046fa07ac4189915340a604c8b7": "usr-1789054742280",
+    "4636f13f8235fedab6f517776f76a85bbd25de6621179c97": "usr-1",
+    "ba686325f55e452e57afe8d5a23b7b38222f294e2415bf1d": "usr-1",
+    "2820f0cd0f91874dd6bc8b18e2e0978ae760a6702025a01d": "usr-1",
+    "71ee21b5d2188f3f08306b04f135d226a22512ce81aa84e1": "usr-1",
+    "5d3e3febd4f095e6a5699d77b54422fbf0cb8a70a5bab1a6": "usr-1",
+    "76c749e4b554fb626f196450b12cfcb54960144ca159dce5": "usr-1",
+    "75ca5a884f21ccfc1f52e8aa41fb3dd7c29e11ccb7bb3b26": "usr-1"
+  }
+}
