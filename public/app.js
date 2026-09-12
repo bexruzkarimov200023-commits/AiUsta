@@ -185,13 +185,17 @@ function account() {
       .map((part) => part[0])
       .join("")
       .slice(0, 2)
-      .toUpperCase()}</div><div><h2>${S.user.name}</h2><p>${S.user.email}</p><span class="badge">${isSpecialist ? "Usta" : S.user.role === "admin" ? "Administrator" : "Mijoz"}</span></div></div><div class="profile-details"><div><small>Ism</small><b>${S.user.name}</b></div><div><small>Email</small><b>${S.user.email}</b></div><div><small>Account ID</small><b>${S.user.id}</b></div></div><button class="primary" id="accountLogout">Accountdan chiqish <span>→</span></button></section><aside class="panel become-master"><span class="ai-avatar">✦</span><h3>${isSpecialist ? "Usta profilingiz faol" : "Usta bo'lib ishlang"}</h3><p>${isSpecialist ? "Siz yaqin mijozlar so'rovlarini qabul qilishingiz mumkin." : "Xizmatlaringizni joylang va yangi mijozlar toping."}</p>${isSpecialist ? '<button class="outline" disabled>Profil faol</button>' : '<button class="primary" id="becomeMaster">Usta bo\'lish →</button>'}</aside></div></div>`;
-  $("#accountLogout").onclick = () => $("#logout").click();
+      .toUpperCase()}</div><div><h2>${S.user.name}</h2><p>${S.user.email}</p><span class="badge">${isSpecialist ? "Usta" : S.user.role === "admin" ? "Administrator" : "Mijoz"}</span></div></div><div class="profile-details"><div><small>Ism</small><b>${S.user.name}</b></div><div><small>Email</small><b>${S.user.email}</b></div><div><small>Account ID</small><b>${S.user.id}</b></div></div>${S.user.role === "guest" ? '<button class="primary" id="accountLogin">Kirish <span>→</span></button>' : '<button class="primary" id="accountLogout">Accountdan chiqish <span>→</span></button>'}</section><aside class="panel become-master"><span class="ai-avatar">✦</span><h3>${isSpecialist ? "Usta profilingiz faol" : "Usta bo'lib ishlang"}</h3><p>${isSpecialist ? "Siz yaqin mijozlar so'rovlarini qabul qilishingiz mumkin." : "Xizmatlaringizni joylang va yangi mijozlar toping."}</p>${isSpecialist ? '<button class="outline" disabled>Profil faol</button>' : '<button class="primary" id="becomeMaster">Usta bo\'lish →</button>'}</aside></div></div>`;
+  if ($("#accountLogin")) $("#accountLogin").onclick = () => modal("auth");
+  if ($("#accountLogout"))
+    $("#accountLogout").onclick = () => $("#logout").click();
   if ($("#becomeMaster"))
     $("#becomeMaster").onclick = () => {
       mode = "register";
       $(".optional").classList.remove("hidden");
-      $(".specialist-only").classList.remove("hidden");
+      $$(".specialist-only").forEach((field) =>
+        field.classList.remove("hidden"),
+      );
       $("#authForm input[name='specialist']").checked = true;
       $("#authTitle").textContent = "Usta bo'lib ro'yxatdan o'tish";
       $("#authText").textContent = "Yo'nalishingizni va emailingizni kiriting.";
@@ -565,7 +569,17 @@ $("#language").onchange = (event) => {
   );
 };
 $("#authForm input[name='specialist']").onchange = (event) =>
-  $(".specialist-only").classList.toggle("hidden", !event.target.checked);
+  $$(".specialist-only").forEach((field) =>
+    field.classList.toggle("hidden", !event.target.checked),
+  );
+const specialistPhoneField = document.createElement("div");
+specialistPhoneField.className =
+  "field specialist-only specialist-phone-field hidden";
+specialistPhoneField.innerHTML =
+  '<label>Telefon raqami</label><input name="phone" type="tel" placeholder="+998 90 123 45 67" autocomplete="tel">';
+$("#authForm input[name='specialist']").parentElement.before(
+  specialistPhoneField,
+);
 $("#help").onclick = () => modal("contact");
 $$("[data-close]").forEach((b) => {
   b.onclick = () => {
@@ -578,20 +592,19 @@ $$("[data-close]").forEach((b) => {
   };
 });
 let mode = "login";
-let otpRequested = false;
 function updateAuthFields() {
   const registering = mode === "register";
-  $(".password-field").classList.toggle("hidden", !registering);
-  $(".code-field").classList.toggle("hidden", registering || !otpRequested);
+  $(".password-field").classList.remove("hidden");
+  $(".code-field").classList.add("hidden");
+  $("#authText").textContent = registering
+    ? "UstaAI bilan muammolaringizni tezroq hal qiling."
+    : "Email va parolingiz bilan davom eting.";
   $("#authSubmit").innerHTML = registering
     ? "Ro‘yxatdan o‘tish <span>→</span>"
-    : otpRequested
-      ? "Kodni tasdiqlash <span>→</span>"
-      : "Kodni yuborish <span>→</span>";
+    : "Kirish <span>→</span>";
 }
 $("#switch").onclick = () => {
   mode = mode === "login" ? "register" : "login";
-  otpRequested = false;
   $(".optional").classList.toggle("hidden", mode === "login");
   $("#authTitle").textContent =
     mode === "login" ? "Xush kelibsiz" : "Hisob yarating";
@@ -611,22 +624,14 @@ $("#authForm").onsubmit = async (e) => {
   e.preventDefault();
   try {
     const form = Object.fromEntries(new FormData(e.target));
-    if (mode === "login" && !otpRequested) {
-      await api("/api/auth/request-code", {
-        method: "POST",
-        body: JSON.stringify({ email: form.email }),
-      });
-      otpRequested = true;
-      $("#authText").textContent =
-        "Emailingizga yuborilgan 6 xonali kodni kiriting.";
-      updateAuthFields();
-      toast("Tasdiqlash kodi emailingizga yuborildi");
+    form.role = form.specialist ? "specialist" : "user";
+    if (form.role === "specialist" && !String(form.phone || "").trim()) {
+      toast("Usta bo‘lish uchun telefon raqami majburiy");
       return;
     }
-    form.role = form.specialist ? "specialist" : "user";
     delete form.specialist;
     const endpoint =
-      mode === "login" ? "/api/auth/verify-code" : "/api/auth/register";
+      mode === "login" ? "/api/auth/login" : "/api/auth/register";
     const r = await api(endpoint, {
       method: "POST",
       body: JSON.stringify(form),
@@ -651,44 +656,24 @@ $("#authForm").onsubmit = async (e) => {
     toast(e.message);
   }
 };
-async function finishLogin(result) {
+function finishLogin(result) {
   S.user = result.user;
-  if (result.sessionToken) {
-    persistAuthState(S.user, result.sessionToken);
-  } else {
-    persistAuthState(S.user, localStorage.getItem(AUTH_SESSION_KEY));
-  }
+  persistAuthState(S.user, result.sessionToken);
   document.body.classList.remove("auth-required");
   profile();
   modal("auth", false);
-  api("/api/specialists").then((catalog) => {
-    S.masters = catalog.specialists;
-  });
-  api("/api/parts").then((catalog) => {
-    S.parts = catalog.parts;
-  });
   api("/api/diagnoses").then((history) => {
     S.diagnoses = history.diagnoses;
   });
   if (S.user.role === "admin") S.page = "admin";
-  else if (S.user.role === "specialist") S.page = "masters";
   toast("Xush kelibsiz, " + S.user.name);
   shell();
 }
 $$("[data-provider]").forEach(
   (button) =>
     (button.onclick = async () => {
-      if (button.dataset.provider === "Google") {
-        window.location.href = "/api/auth/google";
-        return;
-      }
-      const email = $('#authForm input[name="email"]').value.trim();
-      if (!email) {
-        toast(`${button.dataset.provider} hisobingiz emailini kiriting`);
-        $('#authForm input[name="email"]').focus();
-        return;
-      }
-      if (!email) return;
+      window.location.href = `/api/auth/${button.dataset.provider.toLowerCase()}`;
+      return;
       try {
         const result = await api("/api/auth/oauth", {
           method: "POST",
@@ -785,6 +770,7 @@ $("#specialistCreateForm").onsubmit = async (e) => {
 applyLanguage();
 const authError = new URLSearchParams(window.location.search).get("auth_error");
 if (authError) toast(authError);
+updateAuthFields();
 init().then(() => {
   if (S.user?.role === "admin") {
     S.page = "admin";

@@ -120,6 +120,9 @@ function loadData() {
   try {
     const raw = fs.readFileSync(DATA_STORAGE_FILE, "utf8");
     const saved = JSON.parse(raw);
+    saved.users = (saved.users || []).filter(
+      (user) => user.provider !== "Google",
+    );
     const admin = saved.users?.find((user) => user.role === "admin");
     if (admin && process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
       admin.email = process.env.ADMIN_EMAIL;
@@ -217,6 +220,15 @@ function createSession(user) {
   sessions.set(token, user.id);
   saveData(data);
   return token;
+}
+function socialRedirectLogin(req, res, provider) {
+  return redirect(
+    res,
+    "/?auth_error=" +
+      encodeURIComponent(
+        `${provider} orqali kirish uchun avval ro'yxatdan o'ting`,
+      ),
+  );
 }
 async function googleJson(url, options) {
   const response = await fetch(url, options);
@@ -321,10 +333,7 @@ function diagnosisResult(category = "Konditsioner") {
 async function api(req, res, url) {
   if (req.method === "GET" && url.pathname === "/api/auth/google") {
     if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET)
-      return redirect(
-        res,
-        "/?auth_error=" + encodeURIComponent("Google OAuth sozlanmagan"),
-      );
+      return socialRedirectLogin(req, res, "Google");
     const state = crypto.randomBytes(24).toString("hex");
     oauthStates.set(state, { expiresAt: Date.now() + 10 * 60 * 1000 });
     const redirectUri =
@@ -345,6 +354,8 @@ async function api(req, res, url) {
     });
     return res.end();
   }
+  if (req.method === "GET" && url.pathname === "/api/auth/facebook")
+    return socialRedirectLogin(req, res, "Facebook");
   if (req.method === "GET" && url.pathname === "/api/auth/google/callback") {
     const state = url.searchParams.get("state");
     const code = url.searchParams.get("code");
@@ -387,20 +398,11 @@ async function api(req, res, url) {
       );
       if (!profile.email || profile.email_verified === false)
         throw new Error("Google email tasdiqlanmagan");
-      let user = data.users.find(
+      const user = data.users.find(
         (item) => item.email.toLowerCase() === profile.email.toLowerCase(),
       );
-      if (!user) {
-        user = {
-          id: `usr-${Date.now()}`,
-          name: profile.name || profile.email.split("@")[0],
-          email: profile.email,
-          password: "",
-          role: "user",
-          provider: "Google",
-        };
-        data.users.push(user);
-      }
+      if (!user)
+        throw new Error("Avval email va parol bilan ro'yxatdan o'ting");
       const sessionToken = createSession(user);
       res.writeHead(302, {
         Location: "/?oauth=success",
@@ -462,18 +464,10 @@ async function api(req, res, url) {
     if (!body.provider || !body.email)
       return send(res, 400, { error: "Email manzilingizni kiriting" });
     let user = data.users.find((item) => item.email === body.email);
-    if (!user) {
-      user = {
-        id: `usr-${Date.now()}`,
-        name: body.name || `${body.provider} foydalanuvchisi`,
-        email: body.email,
-        password: crypto.randomBytes(16).toString("hex"),
-        role: "user",
-        provider: body.provider,
-      };
-      data.users.push(user);
-      saveData(data);
-    }
+    if (!user)
+      return send(res, 404, {
+        error: "Avval email va parol bilan ro'yxatdan o'ting",
+      });
     const token = crypto.randomBytes(24).toString("hex");
     sessions.set(token, user.id);
     saveData(data);
@@ -488,8 +482,12 @@ async function api(req, res, url) {
   }
   if (req.method === "POST" && url.pathname === "/api/auth/login") {
     const body = await parseBody(req);
+    const email = String(body.email || "")
+      .trim()
+      .toLowerCase();
     const user = data.users.find(
-      (item) => item.email === body.email && item.password === body.password,
+      (item) =>
+        item.email.toLowerCase() === email && item.password === body.password,
     );
     if (!user) return send(res, 401, { error: "Email yoki parol noto‘g‘ri" });
     const token = crypto.randomBytes(24).toString("hex");
@@ -506,7 +504,13 @@ async function api(req, res, url) {
   }
   if (req.method === "POST" && url.pathname === "/api/auth/register") {
     const body = await parseBody(req);
-    if (!body.name || !body.email || !body.password)
+    const isSpecialist = body.role === "specialist";
+    if (
+      !body.name ||
+      !body.email ||
+      !body.password ||
+      (isSpecialist && !String(body.phone || "").trim())
+    )
       return send(res, 400, { error: "Barcha maydonlarni to‘ldiring" });
     if (data.users.some((user) => user.email === body.email))
       return send(res, 409, { error: "Bu email avval ro‘yxatdan o‘tgan" });
@@ -515,8 +519,9 @@ async function api(req, res, url) {
       name: body.name,
       email: body.email,
       password: body.password,
-      role: body.role === "specialist" ? "specialist" : "user",
+      role: isSpecialist ? "specialist" : "user",
       specialty: body.specialty || "",
+      phone: String(body.phone || "").trim(),
       rating: 5,
       jobs: 0,
       distance: "Yangi usta",
@@ -538,6 +543,7 @@ async function api(req, res, url) {
         id: `usta-${user.id}`,
         name: user.name,
         specialty: user.specialty,
+        phone: user.phone,
         rating: 5,
         jobs: 0,
         distance: "Yangi usta",
@@ -701,6 +707,9 @@ async function api(req, res, url) {
     if (index === -1)
       return send(res, 404, { error: "Foydalanuvchi topilmadi" });
     const [removed] = data.users.splice(index, 1);
+    for (const [token, sessionUserId] of sessions.entries()) {
+      if (sessionUserId === userId) sessions.delete(token);
+    }
     data.diagnoses = data.diagnoses.filter((item) => item.userId !== userId);
     if (removed.role === "specialist")
       data.specialists = data.specialists.filter(
