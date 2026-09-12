@@ -6,5 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "nodemailer": "^10.0.8"
   }
 }

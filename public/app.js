@@ -4,6 +4,7 @@ const S = {
   category: "Konditsioner",
   diagnoses: [],
   masters: [],
+  parts: [],
 };
 const cats = [
   ["Konditsioner", "❄", "Sovutish"],
@@ -22,6 +23,7 @@ const languages = {
       "Diagnostikalarim",
       "Ustalar",
       "Account",
+      "Ehtiyot qismlar",
       "Biz haqimizda",
     ],
     dark: "Qora rejim",
@@ -29,7 +31,15 @@ const languages = {
     help: "Yordam kerakmi?",
   },
   ru: {
-    nav: ["Главная", "AI чат", "Диагностика", "Мастера", "Аккаунт", "О нас"],
+    nav: [
+      "Главная",
+      "AI чат",
+      "Диагностика",
+      "Мастера",
+      "Аккаунт",
+      "Запчасти",
+      "О нас",
+    ],
     dark: "Темная тема",
     light: "Светлая тема",
     help: "Нужна помощь?",
@@ -41,6 +51,7 @@ const languages = {
       "My diagnostics",
       "Specialists",
       "Account",
+      "Parts",
       "About",
     ],
     dark: "Dark mode",
@@ -110,6 +121,11 @@ aboutNav.className = "nav";
 aboutNav.dataset.page = "about";
 aboutNav.innerHTML = "ⓘ <span>About</span>";
 document.querySelector("nav").appendChild(aboutNav);
+const partsNav = document.createElement("button");
+partsNav.className = "nav";
+partsNav.dataset.page = "parts";
+partsNav.innerHTML = "▣ <span>Ehtiyot qismlar</span>";
+document.querySelector("nav").insertBefore(partsNav, aboutNav);
 async function api(url, o = {}) {
   const token = localStorage.getItem("usta_session");
   const r = await fetch(url, {
@@ -146,6 +162,7 @@ function shell() {
     account: "Account",
     about: "Biz haqimizda",
     admin: "Admin panel",
+    parts: "Ehtiyot qismlar",
   };
   $("#crumb").textContent = titles[S.page];
   $$(".nav").forEach((n) =>
@@ -155,6 +172,7 @@ function shell() {
   if (S.page === "chat") chat();
   if (S.page === "history") history();
   if (S.page === "masters") masters();
+  if (S.page === "parts") partsStore();
   if (S.page === "account") account();
   if (S.page === "about") about();
   if (S.page === "admin") admin();
@@ -371,6 +389,48 @@ function masters() {
   $("#addMasterBtn") &&
     ($("#addMasterBtn").onclick = () => modal("specialistForm"));
 }
+function partsStore() {
+  const categories = [
+    "Barchasi",
+    ...new Set(S.parts.map((part) => part.category)),
+  ];
+  const render = (category = "Barchasi", query = "") => {
+    const items = S.parts.filter(
+      (part) =>
+        (category === "Barchasi" || part.category === category) &&
+        `${part.name} ${part.category}`
+          .toLowerCase()
+          .includes(query.toLowerCase()),
+    );
+    $("#content").innerHTML =
+      `<div class="page"><div class="heading"><div><span class="eyebrow">MARKETPLACE</span><h1>Ehtiyot qismlar</h1><p>Ustalar tavsiya qilgan ehtiyot qismlarni toping va buyurtma qiling.</p></div><span class="date">${S.parts.length} ta mahsulot</span></div><div class="parts-toolbar"><input id="partsSearch" placeholder="Qism nomini qidiring..."><div class="parts-tabs">${categories.map((item) => `<button class="outline ${item === category ? "selected" : ""}" data-part-category="${item}">${item}</button>`).join("")}</div></div><div class="parts-grid">${items.length ? items.map((part) => `<article class="part-card card"><div class="part-icon">${part.icon}</div><div class="part-copy"><span class="eyebrow">${part.category}</span><h3>${part.name}</h3><p>${part.description}</p><strong>${part.price.toLocaleString("uz-UZ")} so‘m</strong><small>${part.stock > 0 ? `${part.stock} dona mavjud` : "Sotilgan"}</small></div><button class="primary full buy-part" data-part-id="${part.id}" ${part.stock < 1 ? "disabled" : ""}>Buyurtma berish <span>→</span></button></article>`).join("") : '<div class="empty"><h3>Mahsulot topilmadi</h3><p>Boshqa nom yoki kategoriyani sinab ko‘ring.</p></div>'}</div></div>`;
+    $("#partsSearch").value = query;
+    $$("[data-part-category]").forEach(
+      (button) =>
+        (button.onclick = () => render(button.dataset.partCategory, query)),
+    );
+    $("#partsSearch").oninput = (event) => render(category, event.target.value);
+    $$(".buy-part").forEach(
+      (button) => (button.onclick = () => buyPart(button.dataset.partId)),
+    );
+  };
+  render();
+}
+async function buyPart(partId) {
+  if (!S.user) return modal("auth");
+  try {
+    await api("/api/orders", {
+      method: "POST",
+      body: JSON.stringify({ partId, quantity: 1 }),
+    });
+    const part = S.parts.find((item) => item.id === partId);
+    if (part) part.stock -= 1;
+    toast("Buyurtma qabul qilindi. Usta siz bilan bog‘lanadi.");
+    partsStore();
+  } catch (error) {
+    toast(error.message);
+  }
+}
 async function admin() {
   try {
     const x = await api("/api/admin/stats");
@@ -422,6 +482,7 @@ async function init() {
     if (!S.user) return requireLogin();
     persistAuthState(S.user, localStorage.getItem(AUTH_SESSION_KEY));
     S.masters = (await api("/api/specialists")).specialists;
+    S.parts = (await api("/api/parts")).parts;
     S.diagnoses = (await api("/api/diagnoses")).diagnoses;
     profile();
     shell();
@@ -440,7 +501,11 @@ function profile() {
   if (!S.user) return;
   $("#userName").textContent = S.user.name;
   $("#userRole").textContent =
-    S.user.role === "admin" ? "Administrator" : "Mijoz";
+    S.user.role === "admin"
+      ? "Administrator"
+      : S.user.role === "specialist"
+        ? "Usta"
+        : "Mijoz";
   $(".avatar").textContent = S.user.name
     .split(" ")
     .map((x) => x[0])
@@ -513,8 +578,20 @@ $$("[data-close]").forEach((b) => {
   };
 });
 let mode = "login";
+let otpRequested = false;
+function updateAuthFields() {
+  const registering = mode === "register";
+  $(".password-field").classList.toggle("hidden", !registering);
+  $(".code-field").classList.toggle("hidden", registering || !otpRequested);
+  $("#authSubmit").innerHTML = registering
+    ? "Ro‘yxatdan o‘tish <span>→</span>"
+    : otpRequested
+      ? "Kodni tasdiqlash <span>→</span>"
+      : "Kodni yuborish <span>→</span>";
+}
 $("#switch").onclick = () => {
   mode = mode === "login" ? "register" : "login";
+  otpRequested = false;
   $(".optional").classList.toggle("hidden", mode === "login");
   $("#authTitle").textContent =
     mode === "login" ? "Xush kelibsiz" : "Hisob yarating";
@@ -524,10 +601,7 @@ $("#switch").onclick = () => {
       : "UstaAI bilan muammolaringizni tezroq hal qiling.";
   $(".role-choice").classList.toggle("hidden", mode === "login");
   $(".specialist-only").classList.add("hidden");
-  $("#authSubmit").innerHTML =
-    mode === "login"
-      ? "Kirish <span>→</span>"
-      : "Ro‘yxatdan o‘tish <span>→</span>";
+  updateAuthFields();
   $("#switch").innerHTML =
     mode === "login"
       ? "Hisobingiz yo‘qmi? <b>Ro‘yxatdan o‘ting</b>"
@@ -537,9 +611,23 @@ $("#authForm").onsubmit = async (e) => {
   e.preventDefault();
   try {
     const form = Object.fromEntries(new FormData(e.target));
+    if (mode === "login" && !otpRequested) {
+      await api("/api/auth/request-code", {
+        method: "POST",
+        body: JSON.stringify({ email: form.email }),
+      });
+      otpRequested = true;
+      $("#authText").textContent =
+        "Emailingizga yuborilgan 6 xonali kodni kiriting.";
+      updateAuthFields();
+      toast("Tasdiqlash kodi emailingizga yuborildi");
+      return;
+    }
     form.role = form.specialist ? "specialist" : "user";
     delete form.specialist;
-    const r = await api("/api/auth/" + mode, {
+    const endpoint =
+      mode === "login" ? "/api/auth/verify-code" : "/api/auth/register";
+    const r = await api(endpoint, {
       method: "POST",
       body: JSON.stringify(form),
     });
@@ -552,15 +640,18 @@ $("#authForm").onsubmit = async (e) => {
     document.body.classList.remove("auth-required");
     profile();
     modal("auth", false);
+    S.masters = (await api("/api/specialists")).specialists;
+    S.parts = (await api("/api/parts")).parts;
     S.diagnoses = (await api("/api/diagnoses")).diagnoses;
     toast("Xush kelibsiz, " + S.user.name);
     if (S.user.role === "admin") S.page = "admin";
+    else if (S.user.role === "specialist") S.page = "masters";
     shell();
   } catch (e) {
     toast(e.message);
   }
 };
-function finishLogin(result) {
+async function finishLogin(result) {
   S.user = result.user;
   if (result.sessionToken) {
     persistAuthState(S.user, result.sessionToken);
@@ -570,16 +661,27 @@ function finishLogin(result) {
   document.body.classList.remove("auth-required");
   profile();
   modal("auth", false);
+  api("/api/specialists").then((catalog) => {
+    S.masters = catalog.specialists;
+  });
+  api("/api/parts").then((catalog) => {
+    S.parts = catalog.parts;
+  });
   api("/api/diagnoses").then((history) => {
     S.diagnoses = history.diagnoses;
   });
   if (S.user.role === "admin") S.page = "admin";
+  else if (S.user.role === "specialist") S.page = "masters";
   toast("Xush kelibsiz, " + S.user.name);
   shell();
 }
 $$("[data-provider]").forEach(
   (button) =>
     (button.onclick = async () => {
+      if (button.dataset.provider === "Google") {
+        window.location.href = "/api/auth/google";
+        return;
+      }
       const email = $('#authForm input[name="email"]').value.trim();
       if (!email) {
         toast(`${button.dataset.provider} hisobingiz emailini kiriting`);
@@ -681,6 +783,8 @@ $("#specialistCreateForm").onsubmit = async (e) => {
   }
 };
 applyLanguage();
+const authError = new URLSearchParams(window.location.search).get("auth_error");
+if (authError) toast(authError);
 init().then(() => {
   if (S.user?.role === "admin") {
     S.page = "admin";

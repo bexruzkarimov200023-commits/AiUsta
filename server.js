@@ -2,6 +2,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const nodemailer = require("nodemailer");
 
 const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
@@ -10,15 +11,73 @@ const DATA_FILE = path.join(ROOT, "data.json");
 const TMP_DATA_FILE = path.join("/tmp", "ustaai-data.json");
 const DATA_STORAGE_FILE = process.env.VERCEL ? TMP_DATA_FILE : DATA_FILE;
 const sessions = new Map();
+const otpChallenges = new Map();
+const oauthStates = new Map();
+const defaultParts = [
+  {
+    id: "part-1",
+    name: "Universal konditsioner filtri",
+    category: "Konditsioner",
+    description: "Ko‘p turdagi split tizimlar uchun yuviladigan filtr.",
+    price: 85000,
+    stock: 18,
+    icon: "❄",
+  },
+  {
+    id: "part-2",
+    name: "Drenaj shlangi 3 metr",
+    category: "Konditsioner",
+    description: "Suv oqishi muammosini bartaraf etish uchun mustahkam shlang.",
+    price: 65000,
+    stock: 24,
+    icon: "〰",
+  },
+  {
+    id: "part-3",
+    name: "USB-C quvvat porti",
+    category: "Telefon",
+    description: "Ommabop Android telefonlar uchun almashtiriladigan modul.",
+    price: 110000,
+    stock: 12,
+    icon: "⌁",
+  },
+  {
+    id: "part-4",
+    name: "Termopasta 5 g",
+    category: "Kompyuter",
+    description:
+      "Protsessor va videokarta uchun yuqori issiqlik o‘tkazuvchi pasta.",
+    price: 45000,
+    stock: 31,
+    icon: "◉",
+  },
+  {
+    id: "part-5",
+    name: "Klemma to‘plami",
+    category: "Elektr",
+    description: "Uy elektr tarmog‘i uchun izolyatsiyalangan ulash klemmasi.",
+    price: 38000,
+    stock: 40,
+    icon: "⚡",
+  },
+  {
+    id: "part-6",
+    name: "FUM lenta va prokladka",
+    category: "Santexnika",
+    description: "Suv ulanishlarini zichlash uchun kundalik to‘plam.",
+    price: 22000,
+    stock: 55,
+    icon: "◌",
+  },
+];
 
 const defaultData = {
   users: [
     {
       id: "usr-1",
-      name: "Demo Admin",
-      email: "bexruzkarimov200023@gmail.com",
-      password: "Bexruz,123",
-      name: "Bexruz Karimov",
+      name: "Platforma administratori",
+      email: process.env.ADMIN_EMAIL || "admin@example.com",
+      password: process.env.ADMIN_PASSWORD || "",
       role: "admin",
     },
   ],
@@ -62,11 +121,9 @@ function loadData() {
     const raw = fs.readFileSync(DATA_STORAGE_FILE, "utf8");
     const saved = JSON.parse(raw);
     const admin = saved.users?.find((user) => user.role === "admin");
-    if (admin) {
-      admin.email = "bexruzkarimov200023@gmail.com";
-      admin.password = "Bexruz,123";
-      admin.name = "Bexruz Karimov";
-      fs.writeFileSync(DATA_STORAGE_FILE, JSON.stringify(saved, null, 2));
+    if (admin && process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
+      admin.email = process.env.ADMIN_EMAIL;
+      admin.password = process.env.ADMIN_PASSWORD;
     }
     saved.sessions = saved.sessions || {};
     for (const [token, userId] of Object.entries(saved.sessions))
@@ -88,6 +145,8 @@ function saveData(data) {
   fs.writeFileSync(DATA_STORAGE_FILE, JSON.stringify(data, null, 2));
 }
 let data = loadData();
+data.parts = data.parts || defaultParts;
+data.orders = data.orders || [];
 
 function send(res, status, payload, headers = {}) {
   res.writeHead(status, {
@@ -143,6 +202,52 @@ function requireAuth(req, res, role) {
     return null;
   }
   return user;
+}
+function redirect(res, location) {
+  res.writeHead(302, { Location: location });
+  res.end();
+}
+function appOrigin(req) {
+  return (
+    process.env.APP_URL || `http://${req.headers.host || "localhost:3000"}`
+  );
+}
+function createSession(user) {
+  const token = crypto.randomBytes(24).toString("hex");
+  sessions.set(token, user.id);
+  saveData(data);
+  return token;
+}
+async function googleJson(url, options) {
+  const response = await fetch(url, options);
+  const body = await response.json();
+  if (!response.ok)
+    throw new Error(
+      body.error_description || body.error || "Google autentifikatsiya xatosi",
+    );
+  return body;
+}
+async function sendOtpEmail(email, code) {
+  const smtpConfigured =
+    process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD;
+  if (!smtpConfigured) {
+    if (process.env.NODE_ENV === "production")
+      throw new Error("Email xizmati sozlanmagan");
+    console.log(`UstaAI OTP for ${email}: ${code}`);
+    return;
+  }
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: process.env.SMTP_SECURE === "true",
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
+  });
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to: email,
+    subject: "UstaAI tasdiqlash kodi",
+    text: `UstaAI hisobingiz uchun tasdiqlash kodi: ${code}. Kod 10 daqiqa amal qiladi.`,
+  });
 }
 function diagnosisResult(category = "Konditsioner") {
   const results = {
@@ -214,6 +319,144 @@ function diagnosisResult(category = "Konditsioner") {
 }
 
 async function api(req, res, url) {
+  if (req.method === "GET" && url.pathname === "/api/auth/google") {
+    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET)
+      return redirect(
+        res,
+        "/?auth_error=" + encodeURIComponent("Google OAuth sozlanmagan"),
+      );
+    const state = crypto.randomBytes(24).toString("hex");
+    oauthStates.set(state, { expiresAt: Date.now() + 10 * 60 * 1000 });
+    const redirectUri =
+      process.env.GOOGLE_REDIRECT_URI ||
+      `${appOrigin(req)}/api/auth/google/callback`;
+    const params = new URLSearchParams({
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      redirect_uri: redirectUri,
+      response_type: "code",
+      scope: "openid email profile",
+      state,
+      access_type: "online",
+      prompt: "select_account",
+    });
+    res.writeHead(302, {
+      Location: `https://accounts.google.com/o/oauth2/v2/auth?${params}`,
+      "Set-Cookie": `usta_oauth_state=${state}; HttpOnly; SameSite=Lax; Path=/; Max-Age=600`,
+    });
+    return res.end();
+  }
+  if (req.method === "GET" && url.pathname === "/api/auth/google/callback") {
+    const state = url.searchParams.get("state");
+    const code = url.searchParams.get("code");
+    const oauthState = state && oauthStates.get(state);
+    const stateCookie = cookies(req).usta_oauth_state;
+    oauthStates.delete(state);
+    if (
+      stateCookie !== state ||
+      (oauthState && oauthState.expiresAt < Date.now())
+    )
+      return redirect(
+        res,
+        "/?auth_error=" + encodeURIComponent("Google login sessiyasi eskirgan"),
+      );
+    if (!code)
+      return redirect(
+        res,
+        "/?auth_error=" + encodeURIComponent("Google login bekor qilindi"),
+      );
+    try {
+      const redirectUri =
+        process.env.GOOGLE_REDIRECT_URI ||
+        `${appOrigin(req)}/api/auth/google/callback`;
+      const tokens = await googleJson("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          code,
+          client_id: process.env.GOOGLE_CLIENT_ID,
+          client_secret: process.env.GOOGLE_CLIENT_SECRET,
+          redirect_uri: redirectUri,
+          grant_type: "authorization_code",
+        }),
+      });
+      const profile = await googleJson(
+        "https://openidconnect.googleapis.com/v1/userinfo",
+        {
+          headers: { Authorization: `Bearer ${tokens.access_token}` },
+        },
+      );
+      if (!profile.email || profile.email_verified === false)
+        throw new Error("Google email tasdiqlanmagan");
+      let user = data.users.find(
+        (item) => item.email.toLowerCase() === profile.email.toLowerCase(),
+      );
+      if (!user) {
+        user = {
+          id: `usr-${Date.now()}`,
+          name: profile.name || profile.email.split("@")[0],
+          email: profile.email,
+          password: "",
+          role: "user",
+          provider: "Google",
+        };
+        data.users.push(user);
+      }
+      const sessionToken = createSession(user);
+      res.writeHead(302, {
+        Location: "/?oauth=success",
+        "Set-Cookie": [
+          `usta_session=${sessionToken}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000`,
+          "usta_oauth_state=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0",
+        ],
+      });
+      return res.end();
+    } catch (error) {
+      return redirect(res, "/?auth_error=" + encodeURIComponent(error.message));
+    }
+  }
+  if (req.method === "POST" && url.pathname === "/api/auth/request-code") {
+    const body = await parseBody(req);
+    const email = String(body.email || "")
+      .trim()
+      .toLowerCase();
+    if (!email)
+      return send(res, 400, { error: "Email manzilingizni kiriting" });
+    const user = data.users.find((item) => item.email.toLowerCase() === email);
+    if (!user) return send(res, 404, { error: "Bu email ro‘yxatdan o‘tmagan" });
+    const code = String(crypto.randomInt(100000, 1000000));
+    otpChallenges.set(email, { code, expiresAt: Date.now() + 10 * 60 * 1000 });
+    try {
+      await sendOtpEmail(email, code);
+    } catch (error) {
+      otpChallenges.delete(email);
+      return send(res, 503, { error: error.message });
+    }
+    return send(res, 200, { ok: true, message: "Tasdiqlash kodi yuborildi" });
+  }
+  if (req.method === "POST" && url.pathname === "/api/auth/verify-code") {
+    const body = await parseBody(req);
+    const email = String(body.email || "")
+      .trim()
+      .toLowerCase();
+    const challenge = otpChallenges.get(email);
+    if (!challenge || challenge.expiresAt < Date.now())
+      return send(res, 401, { error: "Kod eskirgan. Yangi kod so‘rang" });
+    if (String(body.code || "") !== challenge.code)
+      return send(res, 401, { error: "Kod xato" });
+    otpChallenges.delete(email);
+    const user = data.users.find((item) => item.email.toLowerCase() === email);
+    const token = crypto.randomBytes(24).toString("hex");
+    sessions.set(token, user.id);
+    saveData(data);
+    return send(
+      res,
+      200,
+      { user: publicUser(user), sessionToken: token },
+      {
+        "Set-Cookie": `usta_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000`,
+      },
+    );
+  }
   if (req.method === "POST" && url.pathname === "/api/auth/oauth") {
     const body = await parseBody(req);
     if (!body.provider || !body.email)
@@ -337,6 +580,31 @@ async function api(req, res, url) {
     });
   if (req.method === "GET" && url.pathname === "/api/specialists")
     return send(res, 200, { specialists: data.specialists });
+  if (req.method === "GET" && url.pathname === "/api/parts")
+    return send(res, 200, { parts: data.parts });
+  if (req.method === "POST" && url.pathname === "/api/orders") {
+    const user = requireAuth(req, res);
+    if (!user) return;
+    const body = await parseBody(req);
+    const part = data.parts.find((item) => item.id === body.partId);
+    const quantity = Math.max(1, Number(body.quantity) || 1);
+    if (!part) return send(res, 404, { error: "Ehtiyot qism topilmadi" });
+    if (part.stock < quantity)
+      return send(res, 409, { error: "Omborda yetarli qism yo‘q" });
+    part.stock -= quantity;
+    const order = {
+      id: `order-${Date.now()}`,
+      userId: user.id,
+      partId: part.id,
+      quantity,
+      total: part.price * quantity,
+      status: "yangi",
+      createdAt: new Date().toISOString(),
+    };
+    data.orders.unshift(order);
+    saveData(data);
+    return send(res, 201, { order });
+  }
   if (req.method === "POST" && url.pathname === "/api/specialists") {
     const user = requireAuth(req, res);
     if (!user || !["specialist", "admin"].includes(user.role)) return;

@@ -3,8 +3,8 @@
     {
       "id": "usr-1",
       "name": "Bexruz Karimov",
-      "email": "bexruzkarimov200023@gmail.com",
-      "password": "Bexruz,123",
+      "email": "admin@example.com",
+      "password": "",
       "role": "admin"
     },
     {
@@ -14,6 +14,32 @@
       "password": "678bbf0841a560e23a1423c1136d98d5",
       "role": "user",
       "provider": "Google"
+    },
+    {
+      "id": "usr-1789206909190",
+      "name": "Bexruz Karimov",
+      "email": "bexruzkarimov200023@gmail.com",
+      "password": "Bexi,123",
+      "role": "user",
+      "specialty": "",
+      "rating": 5,
+      "jobs": 0,
+      "distance": "Yangi usta",
+      "available": true,
+      "accent": "BK"
+    },
+    {
+      "id": "usr-1789206937035",
+      "name": "Bexruz Karimov",
+      "email": "bexruzkarimov2000@gmail.com",
+      "password": "Bexi,123",
+      "role": "specialist",
+      "specialty": "Telefon ustasi",
+      "rating": 5,
+      "jobs": 0,
+      "distance": "Yangi usta",
+      "available": true,
+      "accent": "BK"
     }
   ],
   "diagnoses": [
@@ -181,6 +207,16 @@
       "distance": "4.6 km",
       "available": false,
       "accent": "FU"
+    },
+    {
+      "id": "usta-usr-1789206937035",
+      "name": "Bexruz Karimov",
+      "specialty": "Telefon ustasi",
+      "rating": 5,
+      "jobs": 0,
+      "distance": "Yangi usta",
+      "available": true,
+      "accent": "BK"
     }
   ],
   "sessions": {
@@ -200,7 +236,65 @@
     "2820f0cd0f91874dd6bc8b18e2e0978ae760a6702025a01d": "usr-1",
     "71ee21b5d2188f3f08306b04f135d226a22512ce81aa84e1": "usr-1",
     "5d3e3febd4f095e6a5699d77b54422fbf0cb8a70a5bab1a6": "usr-1",
-    "76c749e4b554fb626f196450b12cfcb54960144ca159dce5": "usr-1",
-    "75ca5a884f21ccfc1f52e8aa41fb3dd7c29e11ccb7bb3b26": "usr-1"
-  }
+    "75ca5a884f21ccfc1f52e8aa41fb3dd7c29e11ccb7bb3b26": "usr-1",
+    "b0be4b40c7e600c4dada0b965f626e4b1d66be1b5cd87f89": "usr-1789206909190",
+    "faad3fe416f5d66f2f3dfac82ef4a4ce86fd65452166ffd0": "usr-1789206937035"
+  },
+  "parts": [
+    {
+      "id": "part-1",
+      "name": "Universal konditsioner filtri",
+      "category": "Konditsioner",
+      "description": "Ko‘p turdagi split tizimlar uchun yuviladigan filtr.",
+      "price": 85000,
+      "stock": 18,
+      "icon": "❄"
+    },
+    {
+      "id": "part-2",
+      "name": "Drenaj shlangi 3 metr",
+      "category": "Konditsioner",
+      "description": "Suv oqishi muammosini bartaraf etish uchun mustahkam shlang.",
+      "price": 65000,
+      "stock": 24,
+      "icon": "〰"
+    },
+    {
+      "id": "part-3",
+      "name": "USB-C quvvat porti",
+      "category": "Telefon",
+      "description": "Ommabop Android telefonlar uchun almashtiriladigan modul.",
+      "price": 110000,
+      "stock": 12,
+      "icon": "⌁"
+    },
+    {
+      "id": "part-4",
+      "name": "Termopasta 5 g",
+      "category": "Kompyuter",
+      "description": "Protsessor va videokarta uchun yuqori issiqlik o‘tkazuvchi pasta.",
+      "price": 45000,
+      "stock": 31,
+      "icon": "◉"
+    },
+    {
+      "id": "part-5",
+      "name": "Klemma to‘plami",
+      "category": "Elektr",
+      "description": "Uy elektr tarmog‘i uchun izolyatsiyalangan ulash klemmasi.",
+      "price": 38000,
+      "stock": 40,
+      "icon": "⚡"
+    },
+    {
+      "id": "part-6",
+      "name": "FUM lenta va prokladka",
+      "category": "Santexnika",
+      "description": "Suv ulanishlarini zichlash uchun kundalik to‘plam.",
+      "price": 22000,
+      "stock": 55,
+      "icon": "◌"
+    }
+  ],
+  "orders": []
 }
