@@ -273,8 +273,16 @@ function chat() {
           ? "en-US"
           : "uz-UZ";
     recognition.onstart = () => toast("Eshityapman...");
+    let transcript = "";
     recognition.onresult = (event) => {
-      $("#chatInput").value = event.results[0][0].transcript;
+      transcript = Array.from(event.results)
+        .map((result) => result[0].transcript)
+        .join(" ")
+        .trim();
+      $("#chatInput").value = transcript;
+    };
+    recognition.onend = () => {
+      if (transcript) send(transcript);
     };
     recognition.onerror = () => toast("Mikrofon ruxsati berilmadi");
     recognition.start();
@@ -302,7 +310,14 @@ function bindHome() {
     shell();
   };
   $("#file").onchange = (e) => file(e.target.files[0]);
-  $("#camera").onclick = () => $("#file").click();
+  const cameraFile = document.createElement("input");
+  cameraFile.type = "file";
+  cameraFile.accept = "image/*";
+  cameraFile.capture = "environment";
+  cameraFile.hidden = true;
+  cameraFile.onchange = (e) => file(e.target.files[0]);
+  $("#zone").appendChild(cameraFile);
+  $("#camera").onclick = () => cameraFile.click();
   const note = document.createElement("textarea");
   note.id = "problemNote";
   note.className = "problem-note";
@@ -451,7 +466,7 @@ async function admin() {
         )
         .join(
           "",
-        )}</div><div class="panel"><div class="panel-head"><h3>Foydalanuvchilar ro'yxati</h3><button class="outline" onclick="admin()">Yangilash</button></div><table class="table"><thead><tr><th>Foydalanuvchi</th><th>Email</th><th>Rol</th><th>ID</th><th>Amal</th></tr></thead><tbody>${x.users.map((u) => `<tr><td><b>${u.name}</b></td><td>${u.email}</td><td><span class="badge">${u.role}</span></td><td>${u.id}</td><td>${u.id === S.user.id ? '<span class="muted-action">Siz</span>' : `<button class="delete-user" data-user-id="${u.id}">O'chirish</button>`}</td></tr>`).join("")}</tbody></table></div></div>`;
+        )}</div><div class="panel"><div class="panel-head"><h3>Foydalanuvchilar ro'yxati</h3><button class="outline" onclick="admin()">Yangilash</button></div><table class="table"><thead><tr><th>Foydalanuvchi</th><th>Email</th><th>Telefon</th><th>Rol</th><th>ID</th><th>Amal</th></tr></thead><tbody>${x.users.map((u) => `<tr><td><b>${u.name}</b></td><td>${u.email}</td><td>${u.phone || "-"}</td><td><span class="badge">${u.role}</span></td><td>${u.id}</td><td>${u.id === S.user.id ? '<span class="muted-action">Siz</span>' : `<button class="delete-user" data-user-id="${u.id}">O'chirish</button>`}</td></tr>`).join("")}</tbody></table></div></div>`;
     $$(".delete-user").forEach(
       (button) => (button.onclick = () => deleteUser(button.dataset.userId)),
     );
@@ -572,14 +587,6 @@ $("#authForm input[name='specialist']").onchange = (event) =>
   $$(".specialist-only").forEach((field) =>
     field.classList.toggle("hidden", !event.target.checked),
   );
-const specialistPhoneField = document.createElement("div");
-specialistPhoneField.className =
-  "field specialist-only specialist-phone-field hidden";
-specialistPhoneField.innerHTML =
-  '<label>Telefon raqami</label><input name="phone" type="tel" placeholder="+998 90 123 45 67" autocomplete="tel">';
-$("#authForm input[name='specialist']").parentElement.before(
-  specialistPhoneField,
-);
 $("#help").onclick = () => modal("contact");
 $$("[data-close]").forEach((b) => {
   b.onclick = () => {

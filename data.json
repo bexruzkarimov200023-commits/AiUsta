@@ -2,7 +2,7 @@
   "users": [
     {
       "id": "usr-1",
-      "name": "Platforma administratori",
+      "name": "Bexruz Karimov",
       "email": "bexruzkarimov200023@gmail.com",
       "password": "Bexruz,123",
       "role": "admin"
@@ -51,7 +51,7 @@
       "category": "Konditsioner",
       "description": "Ko‘p turdagi split tizimlar uchun yuviladigan filtr.",
       "price": 85000,
-      "stock": 18,
+      "stock": 16,
       "icon": "❄"
     },
     {
@@ -100,5 +100,24 @@
       "icon": "◌"
     }
   ],
-  "orders": []
+  "orders": [
+    {
+      "id": "order-1789237990738",
+      "userId": "usr-1",
+      "partId": "part-1",
+      "quantity": 1,
+      "total": 85000,
+      "status": "yangi",
+      "createdAt": "2026-09-12T18:33:10.738Z"
+    },
+    {
+      "id": "order-1789237987423",
+      "userId": "usr-1",
+      "partId": "part-1",
+      "quantity": 1,
+      "total": 85000,
+      "status": "yangi",
+      "createdAt": "2026-09-12T18:33:07.423Z"
+    }
+  ]
 }

@@ -75,7 +75,7 @@ const defaultData = {
   users: [
     {
       id: "usr-1",
-      name: "Platforma administratori",
+      name: "Bexruz Karimov",
       email: process.env.ADMIN_EMAIL || "admin@example.com",
       password: process.env.ADMIN_PASSWORD || "",
       role: "admin",
@@ -330,6 +330,82 @@ function diagnosisResult(category = "Konditsioner") {
   return results[category] || results.Konditsioner;
 }
 
+function localChatAnswer(message) {
+  const text = String(message || "")
+    .toLowerCase()
+    .trim();
+  if (!text)
+    return "Muammoingizni yozing yoki mikrofon orqali ayting. Masalan: konditsionerimdan suv oqyapti.";
+  if (/^(salom|assalom|assalomu alaykum|hello|hi)\b/.test(text))
+    return "Salom! Men UstaAI yordamchisiman. Qurilma, avtomobil, telefon, kompyuter, elektr yoki santexnika muammosini yozing. Rasm, video yoki ovozli xabar yuborsangiz, yaxshiroq yordam beraman.";
+  if (/(rahmat|tashakkur)/.test(text))
+    return "Arzimaydi! Yana savolingiz bo‘lsa, bemalol yozing.";
+  if (/(xayr|ko‘rishguncha|korishguncha)/.test(text))
+    return "Xayr! Muammo bo‘lsa, UstaAI sizga yordam berishga tayyor.";
+  if (/(tutun|uchqun|kuygan hid|gaz hidi)/.test(text))
+    return "Bu xavfli belgi bo‘lishi mumkin. Qurilmani darhol elektrdan uzing, gaz bo‘lsa kranni yoping, olov yoqmang va ustani chaqiring.";
+  if (/(suv|oqyapti|oqmoqda|sizmoqda)/.test(text))
+    return "Suv oqishi ko‘pincha drenaj tiqilishi, shlang bukilishi yoki ulanishdagi rezina sababli bo‘ladi. Qurilmani o‘chiring, suvni xavfsiz to‘plang va muammo joyining suratini yuboring. Taxminiy narx 60 000–180 000 so‘m.";
+  if (/(ishlamay|yoqilmay|o‘chib|quvvat|xato kodi)/.test(text))
+    return "Avval rozetka, avtomat va kabelni xavfsiz masofadan tekshiring. Kuygan hid yoki qizish bo‘lsa, qayta yoqmang. Qurilma nomi, xato kodi va muammo qachon boshlanganini yozing.";
+  if (/(shovqin|g‘alati ovoz|g'alati ovoz|vizill)/.test(text))
+    return "G‘alati shovqin bo‘shagan mahkamlash, ventilyator, podshipnik yoki ichkaridagi begona jismdan kelishi mumkin. Qurilmani zo‘riqtirmang va ovoz qayerdan chiqayotganini ayting.";
+  if (/(narx|qancha|so‘m|som)/.test(text))
+    return "Narx muammo turi va ehtiyot qismiga bog‘liq. Oddiy diagnostika 50 000–100 000 so‘m, ta’mirlash taxminan 80 000–450 000 so‘m. Qurilma turi va alomatni yozsangiz, aniqroq diapazon beraman.";
+  if (/(usta|chaqir|mutaxassis)/.test(text))
+    return "Yaqin ustani topish uchun “Ustalar” bo‘limiga o‘ting. U yerda reyting, masofa va mavjudlikni solishtirib, mos ustaga bog‘lanishingiz mumkin.";
+  if (/(ob-havo|ob havo|harorat|yomg‘ir|yomgir)/.test(text))
+    return "Ob-havo joylashuvga bog‘liq. Qaysi shahar yoki tumandagi ob-havoni bilmoqchisiz? Jonli ob-havo ma’lumotini ko‘rsatish uchun internet ob-havo xizmati ulanishi kerak.";
+  if (/(sen kimsan|kim\ssan|nima qila olasan|yordam ber)/.test(text))
+    return "Men UstaAI yordamchisiman. Savollarga javob beraman, ta’mirlash muammolarini tahlil qilaman, xavfsizlik bo‘yicha tavsiya beraman va mos ustani topishga yordam beraman.";
+  if (/(salomatlik|boshim|dori|kasal|og‘riq|ogriq)/.test(text))
+    return "Men tibbiy tashxis qo‘ya olmayman. Jiddiy yoki kuchli alomatlarda shifokor yoki tez yordamga murojaat qiling. Alomatni yozsangiz, umumiy ehtiyot choralarini aytishim mumkin.";
+  if (/(nima|qanday|qachon|nega|qayer|kim)/.test(text))
+    return "Savolingizni tushundim. Aniqroq javob berishim uchun mavzuni yoki vaziyatni bir oz batafsilroq yozing.";
+  return "Savolingiz umumiy ko‘rinishda. Mavzuni bir oz batafsilroq yozing, men mos javob berishga harakat qilaman.";
+}
+
+async function chatAnswer(message) {
+  if (!process.env.OPENAI_API_KEY) return localChatAnswer(message);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const response = await fetch(
+      process.env.OPENAI_BASE_URL ||
+        "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+          temperature: 0.3,
+          max_tokens: 500,
+          messages: [
+            {
+              role: "system",
+              content:
+                "Siz UstaAI yordamchisiz. O‘zbek tilida qisqa, aniq va foydali javob bering. Texnika, avtomobil, elektr, santexnika va kundalik savollarga javob bering. Elektr, gaz, tutun yoki uchqun xavfida avval qurilmani uzish va mutaxassis chaqirishni ayting. Ishonchingiz bo‘lmasa, taxmin qilmay savol bering. Narxni faqat taxminiy diapazon sifatida ayting.",
+            },
+            { role: "user", content: String(message || "") },
+          ],
+        }),
+      },
+    );
+    if (!response.ok) throw new Error("AI xizmati javob bermadi");
+    const body = await response.json();
+    const answer = body.choices?.[0]?.message?.content?.trim();
+    return answer || localChatAnswer(message);
+  } catch {
+    return localChatAnswer(message);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function api(req, res, url) {
   if (req.method === "GET" && url.pathname === "/api/auth/google") {
     if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET)
@@ -505,8 +581,11 @@ async function api(req, res, url) {
   if (req.method === "POST" && url.pathname === "/api/auth/register") {
     const body = await parseBody(req);
     const isSpecialist = body.role === "specialist";
+    const name = String(body.name || "").trim();
+    const surname = String(body.surname || "").trim();
     if (
-      !body.name ||
+      !name ||
+      !surname ||
       !body.email ||
       !body.password ||
       (isSpecialist && !String(body.phone || "").trim())
@@ -516,7 +595,8 @@ async function api(req, res, url) {
       return send(res, 409, { error: "Bu email avval ro‘yxatdan o‘tgan" });
     const user = {
       id: `usr-${Date.now()}`,
-      name: body.name,
+      name: `${name} ${surname}`,
+      surname,
       email: body.email,
       password: body.password,
       role: isSpecialist ? "specialist" : "user",
@@ -526,7 +606,7 @@ async function api(req, res, url) {
       jobs: 0,
       distance: "Yangi usta",
       available: true,
-      accent: body.name
+      accent: `${name} ${surname}`
         .split(" ")
         .map((part) => part[0])
         .join("")
@@ -638,18 +718,7 @@ async function api(req, res, url) {
     const user = requireAuth(req, res);
     if (!user) return;
     const body = await parseBody(req);
-    const text = String(body.message || "").toLowerCase();
-    let answer =
-      "Muammoingizni yaxshiroq tushunish uchun rasm yoki qisqa video yuboring. Men sabab, shoshilinchlik va taxminiy narxni aniqlashga yordam beraman.";
-    if (text.includes("suv") || text.includes("oq"))
-      answer =
-        "Suv oqishi ko‘pincha drenaj tiqilishi yoki shlang bukilishidan bo‘ladi. Qurilmani o‘chiring, polni quriting va diagnostika uchun rasm yuboring. Taxminiy xizmat narxi 80 000–150 000 so‘m.";
-    if (text.includes("narx") || text.includes("qancha"))
-      answer =
-        "Aniq narx rasm va hududga bog‘liq. Oddiy diagnostika 50 000–100 000 so‘m, ta’mirlash esa ehtiyot qismiga qarab 80 000–450 000 so‘m oralig‘ida bo‘ladi.";
-    if (text.includes("usta") || text.includes("chaqir"))
-      answer =
-        "Yaqin ustalarni topish uchun chap menyudagi Ustalar bo‘limiga o‘ting. U yerda reytingi, masofasi va mavjudligi ko‘rsatilgan.";
+    const answer = await chatAnswer(body.message);
     return send(res, 200, { answer, createdAt: new Date().toISOString() });
   }
   if (req.method === "POST" && url.pathname === "/api/diagnoses") {
@@ -692,7 +761,10 @@ async function api(req, res, url) {
         ).length,
       },
       recent: data.diagnoses.slice(0, 6),
-      users: data.users.map(publicUser),
+      users: data.users.map((user) => ({
+        ...publicUser(user),
+        phone: user.phone || "",
+      })),
     });
   }
   if (req.method === "DELETE" && url.pathname.startsWith("/api/admin/users/")) {
